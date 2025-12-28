@@ -4,6 +4,7 @@ CLI tool for converting chat exports into LLM-friendly formats. Achieves up to 1
 
 [![Crates.io](https://img.shields.io/crates/v/chatpack-cli.svg)](https://crates.io/crates/chatpack-cli)
 [![CI](https://github.com/Berektassuly/chatpack-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/Berektassuly/chatpack-cli/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Berektassuly/chatpack-cli/graph/badge.svg)](https://codecov.io/gh/Berektassuly/chatpack-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [Documentation](https://berektassuly.com/chatpack-compress-chat-exports-for-llm-rust) | [Library](https://github.com/Berektassuly/chatpack) | [Web Version](https://chatpack.berektassuly.com)
