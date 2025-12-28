@@ -1,0 +1,45 @@
+{
+  "participants": [
+    {"name": "alice_user"},
+    {"name": "bob_user"}
+  ],
+  "messages": [
+    {
+      "sender_name": "bob_user",
+      "timestamp_ms": 1710061500000,
+      "content": "And this one is from March"
+    },
+    {
+      "sender_name": "alice_user",
+      "timestamp_ms": 1708437600000,
+      "content": "This is a message from February"
+    },
+    {
+      "sender_name": "bob_user",
+      "timestamp_ms": 1705315860000,
+      "content": "No, what happened?"
+    },
+    {
+      "sender_name": "alice_user",
+      "timestamp_ms": 1705315831000,
+      "content": "By the way, did you see the news?"
+    },
+    {
+      "sender_name": "alice_user",
+      "timestamp_ms": 1705315830000,
+      "content": "That's wonderful to hear!"
+    },
+    {
+      "sender_name": "bob_user",
+      "timestamp_ms": 1705315815000,
+      "content": "Hi Alice! I'm doing great, thanks for asking."
+    },
+    {
+      "sender_name": "alice_user",
+      "timestamp_ms": 1705315800000,
+      "content": "Hello! How are you?"
+    }
+  ],
+  "title": "Test Chat",
+  "is_still_participant": true
+}

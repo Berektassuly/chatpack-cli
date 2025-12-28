@@ -1,0 +1,65 @@
+{
+  "name": "Test Chat",
+  "type": "personal_chat",
+  "id": 123456789,
+  "messages": [
+    {
+      "id": 1,
+      "type": "message",
+      "date": "2024-01-15T10:30:00",
+      "from": "Alice",
+      "from_id": "user123",
+      "text": "Hello! How are you?"
+    },
+    {
+      "id": 2,
+      "type": "message",
+      "date": "2024-01-15T10:30:15",
+      "from": "Bob",
+      "from_id": "user456",
+      "text": "Hi Alice! I'm doing great, thanks for asking."
+    },
+    {
+      "id": 3,
+      "type": "message",
+      "date": "2024-01-15T10:30:30",
+      "from": "Alice",
+      "from_id": "user123",
+      "text": "That's wonderful to hear!"
+    },
+    {
+      "id": 4,
+      "type": "message",
+      "date": "2024-01-15T10:30:31",
+      "from": "Alice",
+      "from_id": "user123",
+      "text": "By the way, did you see the news?"
+    },
+    {
+      "id": 5,
+      "type": "message",
+      "date": "2024-01-15T10:31:00",
+      "from": "Bob",
+      "from_id": "user456",
+      "text": "No, what happened?",
+      "reply_to_message_id": 4
+    },
+    {
+      "id": 6,
+      "type": "message",
+      "date": "2024-02-20T14:00:00",
+      "from": "Alice",
+      "from_id": "user123",
+      "text": "This is a message from February"
+    },
+    {
+      "id": 7,
+      "type": "message",
+      "date": "2024-03-10T09:15:00",
+      "from": "Bob",
+      "from_id": "user456",
+      "text": "And this one is from March",
+      "edited": "2024-03-10T09:20:00"
+    }
+  ]
+}

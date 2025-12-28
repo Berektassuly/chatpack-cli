@@ -1,20 +1,40 @@
-# 📦 chatpack-cli
+# chatpack-cli
 
-> CLI tool to convert chat exports into LLM-friendly formats. Compress tokens **13x** with CSV output.
+CLI tool for converting chat exports into LLM-friendly formats. Achieves up to 13x token compression with CSV output.
 
 [![Crates.io](https://img.shields.io/crates/v/chatpack-cli.svg)](https://crates.io/crates/chatpack-cli)
+[![CI](https://github.com/Berektassuly/chatpack-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/Berektassuly/chatpack-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+[Documentation](https://berektassuly.com/chatpack-compress-chat-exports-for-llm-rust) | [Library](https://github.com/Berektassuly/chatpack) | [Web Version](https://chatpack.berektassuly.com)
 
-- 🚀 **Fast** — 20K+ messages/sec with streaming by default
-- 📱 **Multi-platform** — Telegram, WhatsApp, Instagram, Discord
-- 🔀 **Smart merge** — Consecutive messages from same sender → one entry
-- 🎯 **Powerful filters** — By date range, by sender
-- 📄 **Multiple formats** — CSV (13x compression), JSON, JSONL (for RAG)
-- 💾 **Memory efficient** — Streaming mode for large files (default)
+## Overview
+
+chatpack-cli transforms chat exports from Telegram, WhatsApp, Instagram, and Discord into formats optimized for LLM context windows. The tool handles format-specific edge cases like WhatsApp locale detection and Instagram Mojibake encoding automatically.
+
+**Token compression comparison (34K messages):**
+
+| Format | Tokens | Compression |
+|--------|--------|-------------|
+| Raw Telegram JSON | 11,177,258 | baseline |
+| CSV | 849,915 | 13.2x |
+| JSONL | 1,029,130 | 10.9x |
+| JSON (clean) | 1,333,586 | 8.4x |
 
 ## Installation
+
+### Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/Berektassuly/chatpack-cli/releases):
+
+| Platform | Architecture | Filename |
+|----------|--------------|----------|
+| Linux | x86_64 | `chatpack-linux-x86_64.tar.gz` |
+| Linux | ARM64 | `chatpack-linux-aarch64.tar.gz` |
+| Linux | musl (static) | `chatpack-linux-x86_64-musl.tar.gz` |
+| macOS | Intel | `chatpack-macos-x86_64.tar.gz` |
+| macOS | Apple Silicon | `chatpack-macos-aarch64.tar.gz` |
+| Windows | x86_64 | `chatpack-windows-x86_64.zip` |
 
 ### From crates.io
 
@@ -33,20 +53,13 @@ cargo install --path .
 ## Quick Start
 
 ```bash
-# Telegram JSON export
-chatpack tg result.json
-
-# WhatsApp TXT export  
-chatpack wa chat.txt
-
-# Instagram JSON export
-chatpack ig message_1.json
-
-# Discord export
-chatpack dc chat.json
+chatpack tg result.json           # Telegram
+chatpack wa chat.txt              # WhatsApp
+chatpack ig message_1.json        # Instagram
+chatpack dc export.json           # Discord
 ```
 
-**Output:** `optimized_chat.csv` — ready to paste into ChatGPT/Claude.
+Output: `optimized_chat.csv`
 
 ## Usage
 
@@ -64,11 +77,11 @@ Options:
   -r, --replies           Include reply references
   -e, --edited            Include edit timestamps
       --ids               Include message IDs
-      --no-merge          Don't merge consecutive messages
+      --no-merge          Disable consecutive message merging
       --after <DATE>      Filter: messages after date (YYYY-MM-DD)
       --before <DATE>     Filter: messages before date (YYYY-MM-DD)
       --from <USER>       Filter: messages from specific sender
-      --no-streaming      Load entire file into memory (default: streaming)
+      --no-streaming      Load entire file into memory
   -p, --progress          Show processing progress
   -q, --quiet             Suppress informational output
   -h, --help              Print help
@@ -77,109 +90,63 @@ Options:
 
 ## Examples
 
-### Basic Usage
+### Format conversion
 
 ```bash
-# Convert Telegram export to CSV
-chatpack tg export.json
-
-# Specify output file
-chatpack wa chat.txt -o conversation.csv
-
-# Use JSON format
-chatpack ig messages.json -f json -o output.json
+chatpack tg export.json -o chat.csv
+chatpack tg export.json -f json -o chat.json
+chatpack tg export.json -f jsonl -o chat.jsonl
 ```
 
-### With Filters
+### Filtering
 
 ```bash
-# Messages from 2024
 chatpack tg chat.json --after 2024-01-01 --before 2024-12-31
-
-# Messages from specific user
-chatpack wa chat.txt --from "Alice"
-
-# Combine filters
+chatpack tg chat.json --from "Alice"
 chatpack tg chat.json --from "Bob" --after 2024-06-01
 ```
 
-### With Metadata
+### Metadata options
 
 ```bash
-# Include timestamps
-chatpack tg chat.json -t
-
-# Include all metadata
-chatpack tg chat.json -t -r -e --ids
-
-# Keep messages separate (no merging)
-chatpack tg chat.json --no-merge
+chatpack tg chat.json -t                    # with timestamps
+chatpack tg chat.json -t -r -e --ids        # all metadata
+chatpack tg chat.json --no-merge            # disable merging
 ```
 
-### Memory Management
+## Message Merging
 
-```bash
-# Default: streaming mode (memory efficient)
-chatpack tg huge_export.json
+By default, consecutive messages from the same sender are merged into single entries:
 
-# Load entire file into memory (faster for small files)
-chatpack tg small_chat.json --no-streaming
-
-# Show progress for large files
-chatpack tg huge_export.json -p
+```
+Before (5 messages):          After (2 entries):
+Alice: Hey                    Alice: Hey / How are you? / See the project?
+Alice: How are you?           Bob: Yeah, looked / Pretty good
+Alice: See the project?
+Bob: Yeah, looked
+Bob: Pretty good
 ```
 
-## Token Compression
-
-| Format | Compression | Best For |
-|--------|-------------|----------|
-| **CSV** | ~13x (92% savings) | LLM context windows |
-| JSONL | ~11x (91% savings) | RAG pipelines |
-| JSON | ~8x (88% savings) | API integrations |
-
-## Streaming vs Full Loading
-
-| Mode | Memory Usage | Speed | Use Case |
-|------|--------------|-------|----------|
-| **Streaming** (default) | Low | Normal | Large files (500MB+) |
-| Full (`--no-streaming`) | High | Faster | Small files (<50MB) |
+This provides ~24% additional token reduction and improves embedding quality for RAG pipelines. Disable with `--no-merge`.
 
 ## Supported Platforms
 
-| Platform | Export Format | Features |
-|----------|---------------|----------|
-| Telegram | JSON | IDs, timestamps, replies, edits, forwarded messages |
+| Platform | Format | Notes |
+|----------|--------|-------|
+| Telegram | JSON | Full metadata support (IDs, replies, edits, forwards) |
 | WhatsApp | TXT | Auto-detects 4 locale-specific date formats |
-| Instagram | JSON | Fixes Mojibake encoding from Meta exports |
-| Discord | JSON/TXT/CSV | Attachments, stickers, replies |
+| Instagram | JSON | Automatic Mojibake encoding fix |
+| Discord | JSON | Attachments, stickers, replies |
 
-## How to Export Chats
+## Performance
 
-### Telegram
-1. Open chat → ⋮ menu → Export Chat History
-2. Choose JSON format
-3. Run: `chatpack tg result.json`
-
-### WhatsApp
-1. Open chat → ⋮ menu → More → Export Chat
-2. Choose "Without Media"
-3. Run: `chatpack wa chat.txt`
-
-### Instagram
-1. Settings → Privacy and Security → Download Data
-2. Request JSON format
-3. Find `messages/inbox/<chat>/message_1.json`
-4. Run: `chatpack ig message_1.json`
-
-### Discord
-1. Use DiscordChatExporter or similar tool
-2. Export in JSON format
-3. Run: `chatpack dc export.json`
+- Speed: 20K+ messages/sec
+- Memory: ~3x input file size
+- Recommended: files up to 500MB (streaming mode default)
 
 ## Library Usage
 
-This CLI is built on top of the [`chatpack`](https://crates.io/crates/chatpack) library. 
-You can use the library directly in your Rust projects:
+This CLI wraps the [`chatpack`](https://crates.io/crates/chatpack) library:
 
 ```rust
 use chatpack::prelude::*;
@@ -195,15 +162,26 @@ fn main() -> chatpack::Result<()> {
 }
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+```bash
+cargo test
+cargo fmt --check
+cargo clippy
+```
+
 ## Requirements
 
-- Rust 1.85+ (edition 2024)
+Rust 1.85+ (edition 2024)
 
 ## License
 
-[MIT](LICENSE) © [Mukhammedali Berektassuly](https://berektassuly.com)
+MIT License. See [LICENSE](LICENSE) for details.
 
-## Related
+## Links
 
-- [`chatpack`](https://crates.io/crates/chatpack) — The underlying library
-- [chatpack.berektassuly.com](https://chatpack.berektassuly.com) — Online version (no installation needed)
+- [chatpack library](https://github.com/Berektassuly/chatpack)
+- [Web version](https://chatpack.berektassuly.com) (WASM, runs locally in browser)
+- [Author's article](https://berektassuly.com/chatpack-compress-chat-exports-for-llm-rust)

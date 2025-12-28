@@ -1,0 +1,102 @@
+{
+  "guild": {
+    "id": "123456789",
+    "name": "Test Server"
+  },
+  "channel": {
+    "id": "987654321",
+    "name": "general",
+    "type": "GuildTextChat"
+  },
+  "messages": [
+    {
+      "id": "1001",
+      "type": "Default",
+      "timestamp": "2024-01-15T10:30:00+00:00",
+      "content": "Hello! How are you?",
+      "author": {
+        "id": "111",
+        "name": "Alice",
+        "discriminator": "0001",
+        "isBot": false
+      }
+    },
+    {
+      "id": "1002",
+      "type": "Default",
+      "timestamp": "2024-01-15T10:30:15+00:00",
+      "content": "Hi Alice! I'm doing great, thanks for asking.",
+      "author": {
+        "id": "222",
+        "name": "Bob",
+        "discriminator": "0002",
+        "isBot": false
+      }
+    },
+    {
+      "id": "1003",
+      "type": "Default",
+      "timestamp": "2024-01-15T10:30:30+00:00",
+      "content": "That's wonderful to hear!",
+      "author": {
+        "id": "111",
+        "name": "Alice",
+        "discriminator": "0001",
+        "isBot": false
+      }
+    },
+    {
+      "id": "1004",
+      "type": "Default",
+      "timestamp": "2024-01-15T10:30:31+00:00",
+      "content": "By the way, did you see the news?",
+      "author": {
+        "id": "111",
+        "name": "Alice",
+        "discriminator": "0001",
+        "isBot": false
+      }
+    },
+    {
+      "id": "1005",
+      "type": "Default",
+      "timestamp": "2024-01-15T10:31:00+00:00",
+      "content": "No, what happened?",
+      "author": {
+        "id": "222",
+        "name": "Bob",
+        "discriminator": "0002",
+        "isBot": false
+      },
+      "reference": {
+        "messageId": "1004"
+      }
+    },
+    {
+      "id": "1006",
+      "type": "Default",
+      "timestamp": "2024-02-20T14:00:00+00:00",
+      "content": "This is a message from February",
+      "author": {
+        "id": "111",
+        "name": "Alice",
+        "discriminator": "0001",
+        "isBot": false
+      }
+    },
+    {
+      "id": "1007",
+      "type": "Default",
+      "timestamp": "2024-03-10T09:15:00+00:00",
+      "content": "And this one is from March",
+      "timestampEdited": "2024-03-10T09:20:00+00:00",
+      "author": {
+        "id": "222",
+        "name": "Bob",
+        "discriminator": "0002",
+        "isBot": false
+      }
+    }
+  ],
+  "messageCount": 7
+}
