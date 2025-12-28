@@ -1,0 +1,29 @@
+[package]
+name = "chatpack-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "CLI tool for parsing and converting chat exports into LLM-friendly formats"
+license = "MIT"
+repository = "https://github.com/Berektassuly/chatpack-cli"
+keywords = ["chat", "telegram", "whatsapp", "instagram", "discord", "llm"]
+categories = ["command-line-utilities", "text-processing"]
+readme = "README.md"
+
+[[bin]]
+name = "chatpack"
+path = "src/main.rs"
+
+[dependencies]
+chatpack = { version = "0.5", features = ["full"] }
+clap = { version = "4", features = ["derive", "color", "help", "usage", "error-context"] }
+anyhow = "1"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
