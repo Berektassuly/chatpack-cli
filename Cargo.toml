@@ -6,7 +6,7 @@ rust-version = "1.85"
 description = "CLI tool for parsing and converting chat exports into LLM-friendly formats"
 license = "MIT"
 repository = "https://github.com/Berektassuly/chatpack-cli"
-keywords = ["chat", "telegram", "whatsapp", "instagram", "discord", "llm"]
+keywords = ["chat", "telegram", "whatsapp", "instagram", "llm"]
 categories = ["command-line-utilities", "text-processing"]
 readme = "README.md"
 
