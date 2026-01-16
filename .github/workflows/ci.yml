@@ -18,7 +18,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -61,7 +61,7 @@ jobs:
             target: x86_64-pc-windows-msvc
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -92,7 +92,7 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -109,7 +109,7 @@ jobs:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Install cargo-audit
         run: cargo install cargo-audit
@@ -125,7 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
