@@ -106,9 +106,9 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "chatpack"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f096c9162ddac50d008b00d342fb1ed5146df6de8c43d5e9b79455f2c6e51c47"
+checksum = "d7952b8c1c333ee05649632d86643739afed3226b06349438c9f546ee9839103"
 dependencies = [
  "chrono",
  "csv",

@@ -15,7 +15,7 @@ name = "chatpack"
 path = "src/main.rs"
 
 [dependencies]
-chatpack = { version = "0.5", features = ["full"] }
+chatpack = { version = "0.6", features = ["full"] }
 clap = { version = "4", features = ["derive", "color", "help", "usage", "error-context"] }
 anyhow = "1"
 
