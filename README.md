@@ -73,7 +73,8 @@ Arguments:
 
 Options:
   -o, --output <FILE>     Output file [default: optimized_chat.csv]
-  -f, --format <FORMAT>   Output format: csv, json, jsonl [default: csv]
+  -f, --format <FORMAT>   Output format: csv, json, jsonl/ndjson [default: csv]
+      --all-metadata      Include timestamps, IDs, replies, and edit timestamps
   -t, --timestamps        Include timestamps
   -r, --replies           Include reply references
   -e, --edited            Include edit timestamps
@@ -83,6 +84,16 @@ Options:
       --before <DATE>     Filter: messages before date (YYYY-MM-DD)
       --from <USER>       Filter: messages from specific sender
       --no-streaming      Load entire file into memory
+      --strict            Fail on invalid records during streaming
+      --buffer-size <BYTES>
+                          Streaming read buffer size
+      --max-message-size <BYTES>
+                          Maximum single message size during streaming
+      --keep-system-messages
+                          Keep WhatsApp system messages
+      --no-fix-encoding   Disable Instagram encoding repair
+      --progress-interval <N>
+                          Message interval for progress updates [default: 10000]
   -p, --progress          Show processing progress
   -q, --quiet             Suppress informational output
   -h, --help              Print help
@@ -97,6 +108,7 @@ Options:
 chatpack tg export.json -o chat.csv
 chatpack tg export.json -f json -o chat.json
 chatpack tg export.json -f jsonl -o chat.jsonl
+chatpack tg export.json -f ndjson -o chat.ndjson
 ```
 
 ### Filtering
@@ -111,8 +123,17 @@ chatpack tg chat.json --from "Bob" --after 2024-06-01
 
 ```bash
 chatpack tg chat.json -t                    # with timestamps
-chatpack tg chat.json -t -r -e --ids        # all metadata
+chatpack tg chat.json --all-metadata        # all metadata
 chatpack tg chat.json --no-merge            # disable merging
+```
+
+### Parser options
+
+```bash
+chatpack tg result.json --strict
+chatpack tg result.json --buffer-size 262144 --max-message-size 10485760
+chatpack wa chat.txt --keep-system-messages
+chatpack ig message_1.json --no-fix-encoding
 ```
 
 ## Message Merging
@@ -137,27 +158,35 @@ This provides ~24% additional token reduction and improves embedding quality for
 | Telegram | JSON | Full metadata support (IDs, replies, edits, forwards) |
 | WhatsApp | TXT | Auto-detects 4 locale-specific date formats |
 | Instagram | JSON | Automatic Mojibake encoding fix |
-| Discord | JSON | Attachments, stickers, replies |
+| Discord | JSON, JSONL, TXT, CSV | Attachments, stickers, replies; JSON/TXT/CSV use full parsing, JSONL streams |
 
 ## Performance
 
 - Speed: 20K+ messages/sec
-- Memory: ~3x input file size
-- Recommended: files up to 500MB (streaming mode default)
+- Streaming mode avoids loading the raw export when the input format supports it
+- The CLI still buffers normalized messages for filtering, merging, and writing output
+- Use `--no-streaming` when you want full in-memory parsing or a parser option requires it
 
 ## Library Usage
 
 This CLI wraps the [`chatpack`](https://crates.io/crates/chatpack) library:
 
 ```rust
+use std::path::Path;
+
 use chatpack::prelude::*;
 
 fn main() -> chatpack::Result<()> {
     let parser = create_parser(Platform::Telegram);
-    let messages = parser.parse("export.json".as_ref())?;
+    let messages = parser.parse(Path::new("export.json"))?;
     
     let merged = merge_consecutive(messages);
-    write_csv(&merged, "output.csv", &OutputConfig::new())?;
+    write_to_format(
+        &merged,
+        "output.jsonl",
+        OutputFormat::Jsonl,
+        &OutputConfig::new().with_timestamps(),
+    )?;
     
     Ok(())
 }
@@ -169,8 +198,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ```bash
 cargo test
-cargo fmt --check
-cargo clippy
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
 ```
 
 ## Requirements

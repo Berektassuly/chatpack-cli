@@ -251,6 +251,32 @@ mod whatsapp {
         assert_success(&result);
         assert!(output.exists());
     }
+
+    #[test]
+    fn test_keep_system_messages() {
+        let input = temp_output("wa_system_messages.txt");
+        let output = temp_output("wa_keep_system.csv");
+        fs::write(
+            &input,
+            "[1/15/24, 10:30:45 AM] Alice: Hello\n[1/15/24, 10:31:00 AM] System: created this group\n[1/15/24, 10:32:00 AM] Bob: Hi",
+        )
+        .expect("Failed to write WhatsApp fixture");
+
+        let result = run_chatpack(&[
+            "wa",
+            input.to_str().unwrap(),
+            "-o",
+            output.to_str().unwrap(),
+            "--keep-system-messages",
+            "-q",
+        ]);
+
+        assert_success(&result);
+
+        let content = read_output(&output);
+        assert!(content.contains("System"));
+        assert!(content.contains("created this group"));
+    }
 }
 
 mod instagram {
@@ -339,6 +365,31 @@ mod discord {
         ]);
 
         assert_success(&result);
+    }
+
+    #[test]
+    fn test_csv_input_export() {
+        let input = temp_output("discord_export.csv");
+        let output = temp_output("dc_csv_input.csv");
+        fs::write(
+            &input,
+            "AuthorID,Author,Date,Content,Attachments,Reactions\n123,Alice,2024-01-15T10:30:00+00:00,Hello from CSV,,",
+        )
+        .expect("Failed to write Discord CSV fixture");
+
+        let result = run_chatpack(&[
+            "dc",
+            input.to_str().unwrap(),
+            "-o",
+            output.to_str().unwrap(),
+            "-q",
+        ]);
+
+        assert_success(&result);
+
+        let content = read_output(&output);
+        assert!(content.contains("Alice"));
+        assert!(content.contains("Hello from CSV"));
     }
 }
 
@@ -605,6 +656,30 @@ mod streaming {
             streaming_content, full_content,
             "Streaming and full loading should produce identical output"
         );
+    }
+
+    #[test]
+    fn test_streaming_options_are_accepted() {
+        let input = fixtures_dir().join("telegram_export.json");
+        let output = temp_output("tg_streaming_options.csv");
+
+        let result = run_chatpack(&[
+            "tg",
+            input.to_str().unwrap(),
+            "-o",
+            output.to_str().unwrap(),
+            "--buffer-size",
+            "131072",
+            "--max-message-size",
+            "1048576",
+            "--strict",
+            "--progress-interval",
+            "1",
+            "-q",
+        ]);
+
+        assert_success(&result);
+        assert!(output.exists());
     }
 }
 
@@ -903,6 +978,36 @@ mod output_validation {
             }
         }
     }
+
+    #[test]
+    fn test_ndjson_alias_valid() {
+        let input = fixtures_dir().join("telegram_export.json");
+        let output = temp_output("tg_valid.ndjson");
+
+        run_chatpack(&[
+            "tg",
+            input.to_str().unwrap(),
+            "-o",
+            output.to_str().unwrap(),
+            "-f",
+            "ndjson",
+            "-q",
+        ]);
+
+        let content = read_output(&output);
+
+        for (i, line) in content.lines().enumerate() {
+            if !line.is_empty() {
+                let parsed: Result<serde_json::Value, _> = serde_json::from_str(line);
+                assert!(
+                    parsed.is_ok(),
+                    "Line {} should be valid JSON: {}",
+                    i + 1,
+                    line
+                );
+            }
+        }
+    }
 }
 
 // ============================================================================
@@ -952,5 +1057,43 @@ mod metadata {
             // Проверяем, что объект не пустой (содержит контент и метаданные)
             assert!(msg.len() > 1, "Message object should contain data");
         }
+    }
+
+    #[test]
+    fn test_all_metadata_shortcut() {
+        let input = fixtures_dir().join("telegram_export.json");
+        let shortcut_output = temp_output("tg_all_metadata_shortcut.json");
+        let explicit_output = temp_output("tg_all_metadata_explicit.json");
+
+        let shortcut = run_chatpack(&[
+            "tg",
+            input.to_str().unwrap(),
+            "-o",
+            shortcut_output.to_str().unwrap(),
+            "-f",
+            "json",
+            "--all-metadata",
+            "-q",
+        ]);
+
+        assert_success(&shortcut);
+
+        let explicit = run_chatpack(&[
+            "tg",
+            input.to_str().unwrap(),
+            "-o",
+            explicit_output.to_str().unwrap(),
+            "-f",
+            "json",
+            "-t",
+            "-r",
+            "-e",
+            "--ids",
+            "-q",
+        ]);
+
+        assert_success(&explicit);
+
+        assert_eq!(read_output(&shortcut_output), read_output(&explicit_output));
     }
 }

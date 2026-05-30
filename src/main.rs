@@ -5,7 +5,7 @@
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, ValueEnum};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chatpack::prelude::*;
 
@@ -22,6 +22,8 @@ use chatpack::prelude::*;
   chatpack ig messages.json -f json           # Instagram to JSON
   chatpack dc export.json --after 2024-01-01  # Discord with date filter
   chatpack tg export.json --no-streaming      # Load entire file into memory
+  chatpack tg export.json --all-metadata      # Include all optional metadata
+  chatpack dc export.jsonl -f ndjson          # JSONL/NDJSON for RAG
 
 \x1b[1mToken Compression:\x1b[0m
   CSV:   ~13x compression (92% savings) - best for LLM context
@@ -51,6 +53,10 @@ struct Cli {
     /// Output format
     #[arg(short, long, value_enum, default_value = "csv", help = "Output format")]
     format: Format,
+
+    /// Include all optional metadata fields
+    #[arg(long, help = "Include timestamps, IDs, replies, and edit timestamps")]
+    all_metadata: bool,
 
     /// Include timestamps in output
     #[arg(short, long, help = "Include message timestamps")]
@@ -88,9 +94,42 @@ struct Cli {
     #[arg(long, help = "Load entire file into memory instead of streaming")]
     no_streaming: bool,
 
+    /// Stop on invalid records instead of skipping them during streaming
+    #[arg(long, help = "Fail on invalid records during streaming")]
+    strict: bool,
+
+    /// Streaming read buffer size in bytes
+    #[arg(long, value_name = "BYTES", help = "Streaming read buffer size")]
+    buffer_size: Option<usize>,
+
+    /// Maximum single message size in bytes during streaming
+    #[arg(
+        long,
+        value_name = "BYTES",
+        help = "Maximum single message size during streaming"
+    )]
+    max_message_size: Option<usize>,
+
+    /// Keep WhatsApp system messages
+    #[arg(long, help = "Keep WhatsApp system messages")]
+    keep_system_messages: bool,
+
+    /// Disable Instagram mojibake encoding fix
+    #[arg(long, help = "Disable Instagram encoding repair")]
+    no_fix_encoding: bool,
+
     /// Show progress during processing
     #[arg(long, short = 'p', help = "Show processing progress")]
     progress: bool,
+
+    /// Report progress every N messages
+    #[arg(
+        long,
+        value_name = "N",
+        default_value_t = 10_000,
+        help = "Message interval for progress updates"
+    )]
+    progress_interval: usize,
 
     /// Quiet mode: suppress all output except errors
     #[arg(long, short = 'q', help = "Suppress informational output")]
@@ -115,15 +154,6 @@ enum Source {
 }
 
 impl Source {
-    fn to_platform(self) -> Platform {
-        match self {
-            Source::Telegram => Platform::Telegram,
-            Source::Whatsapp => Platform::WhatsApp,
-            Source::Instagram => Platform::Instagram,
-            Source::Discord => Platform::Discord,
-        }
-    }
-
     fn name(self) -> &'static str {
         match self {
             Source::Telegram => "Telegram",
@@ -142,6 +172,7 @@ enum Format {
     /// JSON array format
     Json,
     /// JSON Lines format (one object per line, for RAG pipelines)
+    #[value(alias = "ndjson")]
     Jsonl,
 }
 
@@ -155,8 +186,19 @@ impl Format {
     }
 }
 
+impl From<Format> for OutputFormat {
+    fn from(format: Format) -> Self {
+        match format {
+            Format::Csv => OutputFormat::Csv,
+            Format::Json => OutputFormat::Json,
+            Format::Jsonl => OutputFormat::Jsonl,
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    validate_options(&cli)?;
 
     // Validate input file exists
     if !cli.input.exists() {
@@ -200,7 +242,11 @@ fn main() -> Result<()> {
     }
 
     // Build output configuration
-    let mut output_config = OutputConfig::new();
+    let mut output_config = if cli.all_metadata {
+        OutputConfig::all()
+    } else {
+        OutputConfig::new()
+    };
 
     if cli.timestamps {
         output_config = output_config.with_timestamps();
@@ -219,10 +265,10 @@ fn main() -> Result<()> {
     }
 
     // Parse messages
-    let messages = if cli.no_streaming {
-        parse_full(&cli)?
-    } else {
+    let messages = if should_use_streaming(&cli) {
         parse_streaming(&cli)?
+    } else {
+        parse_full(&cli)?
     };
 
     let total_parsed = messages.len();
@@ -253,8 +299,7 @@ fn main() -> Result<()> {
 
 /// Parse using full in-memory loading
 fn parse_full(cli: &Cli) -> Result<Vec<Message>> {
-    let platform = cli.source.to_platform();
-    let parser = create_parser(platform);
+    let parser = create_configured_parser(cli, false);
 
     if cli.progress && !cli.quiet {
         eprintln!("⏳ Loading entire file into memory...");
@@ -273,8 +318,7 @@ fn parse_full(cli: &Cli) -> Result<Vec<Message>> {
 
 /// Parse using streaming (memory-efficient)
 fn parse_streaming(cli: &Cli) -> Result<Vec<Message>> {
-    let platform = cli.source.to_platform();
-    let parser = create_streaming_parser(platform);
+    let parser = create_configured_parser(cli, true);
 
     let mut messages = Vec::new();
     let mut count = 0;
@@ -292,12 +336,12 @@ fn parse_streaming(cli: &Cli) -> Result<Vec<Message>> {
         messages.push(msg);
         count += 1;
 
-        if cli.progress && !cli.quiet && count % 10000 == 0 {
+        if cli.progress && !cli.quiet && count % cli.progress_interval == 0 {
             eprint!("\r⏳ Processed {} messages...", count);
         }
     }
 
-    if cli.progress && !cli.quiet && count >= 10000 {
+    if cli.progress && !cli.quiet && count >= cli.progress_interval {
         eprintln!("\r✓ Streamed {} messages    ", count);
     } else if cli.progress && !cli.quiet {
         eprintln!("✓ Streamed {} messages", count);
@@ -313,22 +357,144 @@ fn write_output(messages: &[Message], cli: &Cli, config: &OutputConfig) -> Resul
         .to_str()
         .with_context(|| format!("Invalid output path: {}", cli.output.display()))?;
 
-    match cli.format {
-        Format::Csv => {
-            write_csv(messages, output_path, config)
-                .with_context(|| format!("Failed to write CSV to {}", cli.output.display()))?;
-        }
-        Format::Json => {
-            write_json(messages, output_path, config)
-                .with_context(|| format!("Failed to write JSON to {}", cli.output.display()))?;
-        }
-        Format::Jsonl => {
-            write_jsonl(messages, output_path, config)
-                .with_context(|| format!("Failed to write JSONL to {}", cli.output.display()))?;
-        }
+    write_to_format(messages, output_path, cli.format.into(), config).with_context(|| {
+        format!(
+            "Failed to write {} to {}",
+            cli.format.name(),
+            cli.output.display()
+        )
+    })?;
+
+    Ok(())
+}
+
+fn validate_options(cli: &Cli) -> Result<()> {
+    if matches!(cli.buffer_size, Some(0)) {
+        bail!("--buffer-size must be greater than 0");
+    }
+
+    if matches!(cli.max_message_size, Some(0)) {
+        bail!("--max-message-size must be greater than 0");
+    }
+
+    if cli.progress_interval == 0 {
+        bail!("--progress-interval must be greater than 0");
+    }
+
+    if cli.keep_system_messages && cli.source != Source::Whatsapp {
+        bail!("--keep-system-messages is only supported for WhatsApp exports");
+    }
+
+    if cli.no_fix_encoding && cli.source != Source::Instagram {
+        bail!("--no-fix-encoding is only supported for Instagram exports");
     }
 
     Ok(())
+}
+
+fn should_use_streaming(cli: &Cli) -> bool {
+    if cli.no_streaming {
+        return false;
+    }
+
+    if cli.source == Source::Whatsapp && cli.keep_system_messages {
+        return false;
+    }
+
+    if cli.source == Source::Instagram && cli.no_fix_encoding {
+        return false;
+    }
+
+    if cli.source == Source::Discord {
+        return is_streamable_discord_input(&cli.input);
+    }
+
+    true
+}
+
+fn is_streamable_discord_input(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| {
+            ["jsonl", "ndjson"]
+                .iter()
+                .any(|candidate| ext.eq_ignore_ascii_case(candidate))
+        })
+}
+
+fn create_configured_parser(cli: &Cli, streaming: bool) -> Box<dyn chatpack::parser::Parser> {
+    match cli.source {
+        Source::Telegram => {
+            let mut config = if streaming {
+                TelegramConfig::streaming()
+            } else {
+                TelegramConfig::new()
+            }
+            .with_skip_invalid(!cli.strict);
+
+            if let Some(buffer_size) = cli.buffer_size {
+                config = config.with_buffer_size(buffer_size);
+            }
+
+            if let Some(max_message_size) = cli.max_message_size {
+                config = config.with_max_message_size(max_message_size);
+            }
+
+            Box::new(TelegramParser::with_config(config))
+        }
+        Source::Whatsapp => {
+            let mut config = if streaming {
+                WhatsAppConfig::streaming()
+            } else {
+                WhatsAppConfig::new()
+            }
+            .with_skip_invalid(!cli.strict)
+            .with_skip_system_messages(!cli.keep_system_messages);
+
+            if let Some(buffer_size) = cli.buffer_size {
+                config = config.with_buffer_size(buffer_size);
+            }
+
+            Box::new(WhatsAppParser::with_config(config))
+        }
+        Source::Instagram => {
+            let mut config = if streaming {
+                InstagramConfig::streaming()
+            } else {
+                InstagramConfig::new()
+            }
+            .with_skip_invalid(!cli.strict)
+            .with_fix_encoding(!cli.no_fix_encoding);
+
+            if let Some(buffer_size) = cli.buffer_size {
+                config = config.with_buffer_size(buffer_size);
+            }
+
+            if let Some(max_message_size) = cli.max_message_size {
+                config = config.with_max_message_size(max_message_size);
+            }
+
+            Box::new(InstagramParser::with_config(config))
+        }
+        Source::Discord => {
+            let mut config = if streaming {
+                DiscordConfig::streaming()
+            } else {
+                DiscordConfig::new()
+            }
+            .with_skip_invalid(!cli.strict);
+
+            if let Some(buffer_size) = cli.buffer_size {
+                config = config.with_buffer_size(buffer_size);
+            }
+
+            if let Some(max_message_size) = cli.max_message_size {
+                config = config.with_max_message_size(max_message_size);
+            }
+
+            Box::new(DiscordParser::with_config(config))
+        }
+    }
 }
 
 /// Print processing summary
